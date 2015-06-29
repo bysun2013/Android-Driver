@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cdtprojectproperties>
+<section name="org.eclipse.cdt.internal.ui.wizards.settingswizards.IncludePaths">
+<language name="C Source File">
+<includepath>/home/bing/FriendlyARM-mini6410/linux-2.6.38/arch/arm/include</includepath>
+<includepath>/home/bing/FriendlyARM-mini6410/linux-2.6.38/arch/arm/plat-samsung/include</includepath>
+<includepath>/home/bing/FriendlyARM-mini6410/linux-2.6.38/include</includepath>
+<includepath>/home/bing/FriendlyARM-mini6410/linux-2.6.38/arch/arm/mach-s3c64xx/include</includepath>
+
+</language>
+<language name="Object File">
+
+</language>
+<language name="Assembly Source File">
+
+</language>
+</section>
+</cdtprojectproperties>

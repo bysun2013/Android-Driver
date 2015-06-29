@@ -1,0 +1,18 @@
+/*
+ * leds_hal_define.h
+ *
+ *  Created on: Oct 18, 2013
+ *      Author: bing
+ */
+
+#ifndef LEDS_HAL_DEFINE_H_
+#define LEDS_HAL_DEFINE_H_
+
+#define S3C6410_LEDS_HAL_WRITE_GPMPUD 1
+#define S3C6410_LEDS_HAL_WRITE_GPMCON 2
+#define S3C6410_LEDS_HAL_WRITE_GPMDAT 3
+#define S3C6410_LEDS_HAL_READ_GPMPUD 4
+#define S3C6410_LEDS_HAL_READ_GPMCON 5
+#define S3C6410_LEDS_HAL_READ_GPMDAT 6
+
+#endif /* LEDS_HAL_DEFINE_H_ */

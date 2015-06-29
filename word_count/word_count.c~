@@ -1,0 +1,115 @@
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/fs.h>
+#include <linux/kernel.h>
+#include <linux/miscdevice.h>
+#include <asm/uaccess.h>
+
+#define DEVICE_NAME "word_count"
+
+#define TRUE -1
+#define FALSE 0
+
+MODULE_AUTHOR("Bing Sun");
+MODULE_DESCRIPTION("Statistics of word count. ");
+MODULE_ALIAS("word count");
+MODULE_LICENSE("GPL");
+
+static unsigned char mem[10000];
+static int word_count = 0;
+
+static char is_space(char c)
+{
+	if(c==' ' || c==9 || c==13 ||c==10)
+		return TRUE;
+	return FALSE;
+}
+
+static int get_word_count(const char *s)
+{
+	int flag=0;
+	int n=1;
+	char *tmp=s;
+	
+	while(is_space(*tmp))
+		tmp++;
+	if(*tmp=='\0')
+		return 0;
+		
+	while(*tmp){
+		if(!is_space(*tmp) && flag==0){
+			n++;
+			flag=1;
+		}else if (is_space(*tmp) && flag==1){
+			flag=0;
+		}
+		tmp++;
+	}
+	
+	return n;	
+}
+
+static ssize_t word_count_read(struct file *file, char __user * buf, size_t count, loff_t *ppos)
+{
+	unsigned char tmp[4];
+	tmp[0]=word_count>>24;
+	tmp[1]=word_count>>16;
+	tmp[2]=word_count>>8;
+	tmp[3]=word_count;
+	copy_to_user(buf, (void*)tmp, 4);
+	printk("read: word count: %d \n", (int)count);
+	
+	return count;
+}
+
+static ssize_t word_count_write(struct file *file, const char __user * buf, size_t count, loff_t *ppos)
+{
+	ssize_t written = count;
+	
+	copy_from_user(mem, buf, count);
+	mem[count] = '\0';
+	word_count=get_word_count(mem);
+	printk("write: word count: %d \n", (int)word_count);
+	
+	return written;
+}
+
+static struct file_operations dev_fops = 
+{
+	.owner=THIS_MODULE,
+	.read=word_count_read,
+	.write=word_count_write,
+};
+
+static struct miscdevice misc =
+{
+	.minor = MISC_DYNAMIC_MINOR ,
+	.name = DEVICE_NAME ,
+	.fops = &dev_fops
+};
+
+
+
+static int word_count_init(void)
+{
+	int ret;
+	ret=misc_register(&misc);
+	if( !ret )
+		printk("word_count init success.\n");
+	else
+	{
+		printk("word_count init unsuccess. Error occured...\n");
+		return -1;
+	}
+	return ret;
+}
+
+static void word_count_exit(void)
+{
+	misc_deregister(&misc);
+	printk("word_count exit success.\n");
+}
+
+
+module_init(word_count_init);
+module_exit(word_count_exit);

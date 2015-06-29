@@ -1,0 +1,3 @@
+这个驱动有点小问题：
+	1. echo 'hello' >/dev/word_count   ;dmesg显示2个字符，是get_word_count的问题
+	2. cat /dev/word_count   ;dmesg中产生大量的重复log

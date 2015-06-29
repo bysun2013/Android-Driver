@@ -1,0 +1,181 @@
+/*
+ * s3c6410_leds.c
+ *
+ *  Created on: Oct 3, 2013
+ *      Author: bing
+ */
+
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/stat.h>
+#include <linux/kernel.h>
+#include <linux/fs.h>
+#include <linux/cdev.h>
+#include <linux/pci.h>
+#include <asm/uaccess.h>
+#include <mach/map.h>
+#include <mach/regs-gpio.h>
+#include <mach/gpio-bank-k.h>
+
+
+#define DEVICE_NAME "s3c6410_leds"
+#define S3C6410_LEDS_MAJOR 0
+#define S3C6410_LEDS_MINOR 234
+#define S3C6410_LEDS_COUNT 1
+
+static int major= S3C6410_LEDS_MAJOR;
+static int minor= S3C6410_LEDS_MINOR;
+static dev_t dev_number;
+
+static unsigned char mem[4];
+static int leds_state=0xa;
+static struct cdev leds_cdev;
+static struct class *leds_class = NULL;
+
+static long s3c6410_leds_ioctl(struct file* filp, unsigned int cmd, unsigned long arg)
+{
+	unsigned int tmp;
+	switch(cmd)
+	{
+	case 0:
+	case 1:
+		if(arg>4)
+			return -EINVAL;
+		tmp=ioread32(S3C64XX_GPKDAT);
+		//1 - open LED; 0 - close LED;
+		if(cmd==1)
+		{
+			tmp &=~(1<<(arg+4));
+		}
+		else
+		{
+			tmp |=(1<<(arg+4));
+		}
+		iowrite32(tmp, S3C64XX_GPKDAT);
+		return 0;
+	default:
+		return -EINVAL;
+	}
+}
+
+static ssize_t s3c6410_leds_write(struct file* filp, const char __user *buf, size_t count, loff_t *ppos){
+
+	unsigned tmp = count;
+	unsigned i=0;
+
+	memset(mem, 0, 4);
+
+	if(count>4)
+		tmp=4;
+	printk("Write to /dev/s3c6410_leds.\n");
+	if(copy_from_user(mem, buf, tmp))
+	{
+		return -EFAULT;
+	}else
+	{
+		for(i=0;i<4;i++)
+		{
+			tmp=ioread32(S3C64XX_GPKDAT);
+			if(mem[i]=='1')
+				tmp &= ~(1<<(i+4));
+			else
+				tmp |= 1<<(i+4);
+			iowrite32(tmp, S3C64XX_GPKDAT);
+		}
+	}
+	return count;
+}
+static struct file_operations fops={
+		.owner = THIS_MODULE,
+		.unlocked_ioctl= s3c6410_leds_ioctl,
+		.write= s3c6410_leds_write
+};
+
+
+/* Create device file */
+static int leds_create_device(void){
+	int ret=0;
+	int err=0;
+
+	cdev_init(&leds_cdev, &fops);
+	leds_cdev.owner = THIS_MODULE;
+
+	if(major == 0){
+		err=alloc_chrdev_region(&leds_cdev.dev, 10, S3C6410_LEDS_COUNT, DEVICE_NAME);
+		if(err < 0){
+			printk(KERN_WARNING"alloc_chrdev_region() failed! \n");
+			return err;
+		}
+		major=MAJOR(leds_cdev.dev);
+		minor=MINOR(leds_cdev.dev);
+		dev_number=leds_cdev.dev;
+
+	}else{
+		dev_number=MKDEV(major, minor);
+		err = register_chrdev_region(dev_number, S3C6410_LEDS_COUNT, DEVICE_NAME);
+		if(err < 0){
+			printk(KERN_WARNING"register_chrdev_region() failed! \n");
+			return err;
+		}
+	}
+	ret=cdev_add(&leds_cdev, dev_number,S3C6410_LEDS_COUNT);
+	leds_class=class_create(THIS_MODULE, DEVICE_NAME);
+	device_create(leds_class, NULL, dev_number, NULL, DEVICE_NAME);
+	return ret;
+}
+
+static void leds_destroy_device(void){
+//When rmmod , ARM hang up....
+	unregister_chrdev_region(dev_number, S3C6410_LEDS_COUNT);
+	device_destroy(leds_class, dev_number);
+	if(leds_class)
+		class_destroy(leds_class);
+
+}
+
+static void leds_init_gpm(int leds_default){
+
+	int tmp=0;
+	//初始化GPMCON寄存器
+	tmp = ioread32(S3C64XX_GPKCON);
+	tmp &= ~(0xFFFF<<16);
+	tmp |= 0x1111<<16;
+	iowrite32(tmp, S3C64XX_GPKCON);
+
+/***
+ * 初始化GPMPUD寄存器
+	tmp = ioread32(S3C64XX_GPKPUD);
+	tmp &= (~0xFF);
+	tmp |= 0xAA;
+	iowrite32(tmp, S3C64XX_GPKPUD);
+*/
+
+	//初始化GPMDAT寄存器
+	tmp = ioread32(S3C64XX_GPKDAT);
+	tmp |=(0xf<<4);
+	tmp &= leds_default<<4;
+	iowrite32(tmp, S3C64XX_GPKDAT);
+
+}
+static int __init leds_init(void)
+{
+	int ret;
+
+	ret=leds_create_device();
+	leds_init_gpm(~leds_state);
+	printk(DEVICE_NAME"\tinitialized\n");
+	return ret;
+}
+static void __exit leds_exit(void)
+{
+
+	leds_destroy_device();
+	printk(DEVICE_NAME"\texit!\n");
+}
+
+module_init(leds_init);
+module_exit(leds_exit);
+
+module_param(leds_state, int, S_IRUGO|S_IWUSR);
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Bing");

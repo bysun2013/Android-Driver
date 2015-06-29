@@ -1,0 +1,1 @@
+arm-linux-gcc -static -o leds_hal_test leds_hal_test.c
